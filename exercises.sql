@@ -409,3 +409,146 @@ FROM ships s
 INNER JOIN outcomes o
 ON s.name = o.ship
 WHERE s.class = 'Kongo'
+
+--№51
+WITH a AS 
+(SELECT name AS ship, numGuns, displacement
+FROM classes c
+INNER JOIN ships s
+ON s.class = c.class
+UNION
+SELECT ship, numGuns, displacement
+FROM outcomes o
+INNER JOIN classes c
+ON o.ship = c.class)
+SELECT ship
+FROM a
+INNER JOIN 
+(SELECT displacement, MAX(numGuns) AS MaxNum
+FROM a
+GROUP BY displacement) AS b
+ON a.displacement = b.displacement
+AND a.numGuns = b.MaxNum
+
+--№52
+SELECT name
+FROM ships s
+INNER JOIN 
+classes c
+ON s.class = c.class
+WHERE (numGuns >= 9 OR numGuns IS NULL)
+AND (bore < 19 OR bore IS NULL)
+AND (displacement <= 65000 OR displacement IS NULL)
+AND (country = 'Japan' OR country IS NULL)
+AND (type = 'bb' OR type IS NULL)
+
+--№53
+SELECT CAST(AVG(numGuns*1.0) AS NUMERIC(4,2))
+FROM classes
+WHERE type = 'bb'
+
+--№54
+SELECT CAST(AVG(numGuns * 1.0) AS NUMERIC(6,2)) Avg_numG
+FROM
+(SELECT s.name, c.numGuns
+FROM classes c JOIN ships s
+ON c.class = s.class
+WHERE type = 'bb'
+union
+SELECT o.ship, c.numGuns
+FROM classes c JOIN outcomes o
+ON c.class = o.ship
+WHERE type = 'bb') a
+
+--№55
+SELECT c.class, MIN(launched)
+FROM classes c
+LEFT JOIN ships s
+ON c.class = s.class
+GROUP BY c.class
+
+--№56
+WITH temp AS
+(SELECT class, COUNT(*) cnt
+FROM
+(SELECT s.class, o.ship, result
+FROM outcomes o 
+JOIN ships s
+ON s.name = o.ship
+UNION
+SELECT c.class, o.ship, result
+FROM outcomes o 
+JOIN classes c
+ON c.class = o.ship) a
+WHERE result = 'sunk'
+GROUP BY class)
+SELECT c.class, CASE WHEN cnt IS NULL THEN 0 ELSE cnt END sunk
+FROM classes c
+LEFT JOIN temp
+ON c.class = temp.class
+
+--№57
+WITH temp AS
+(SELECT class, name 
+FROM ships
+UNION
+SELECT ship AS class, ship AS name
+FROM outcomes
+WHERE ship IN (SELECT class FROM classes))
+, temp2 AS
+(SELECT class 
+FROM temp
+GROUP BY class
+HAVING COUNT(name) >= 3)
+SELECT temp.class, COUNT(*)
+FROM temp
+JOIN outcomes o
+ON temp.name = o.ship
+WHERE result = 'sunk' 
+AND temp.class IN (SELECT class FROM temp2)
+GROUP BY class
+
+--№58
+SELECT m, t,
+CAST(100.0*cc/cc1 AS NUMERIC(5,2))
+from
+(SELECT m, t, sum(c) cc from
+(SELECT distinct maker m, 'PC' t, 0 c from product
+union all
+SELECT distinct maker, 'Laptop', 0 from product
+union all
+SELECT distinct maker, 'Printer', 0 from product
+union all
+SELECT maker, type, count(*) from product
+group by maker, type) as tt
+group by m, t) tt1
+JOIN (
+SELECT maker, count(*) cc1 from product group by maker) tt2
+ON m=maker
+
+--№59
+WITH temp AS (
+SELECT CASE WHEN i.point IS NULL THEN o.point ELSE i.point END AS point,
+CASE WHEN i.date IS NULL THEN o.date ELSE i.date END AS date,
+CASE WHEN inc IS NULL THEN 0 ELSE inc END - CASE WHEN out IS NULL THEN 0 ELSE out END AS remain
+FROM income_o i
+FULL JOIN outcome_o o
+ON i.point = o.point
+AND i.date = o.date)
+SELECT point, SUM(remain) remain
+FROM temp
+GROUP BY point
+
+--№60
+WITH temp AS (
+SELECT CASE WHEN i.point IS NULL THEN o.point ELSE i.point END AS point, 
+CASE WHEN i.date IS NULL THEN o.date ELSE i.date END AS date,
+CASE WHEN inc IS NULL THEN 0 ELSE inc END - CASE WHEN out IS NULL THEN 0 ELSE out END AS remain
+FROM income_o i
+FULL JOIN outcome_o o
+ON i.point = o.point
+AND i.date = o.date)
+SELECT point, SUM(remain) 
+FROM temp
+WHERE date < '2001-04-15'
+GROUP BY point
