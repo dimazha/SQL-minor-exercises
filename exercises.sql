@@ -303,3 +303,109 @@ FROM product
 GROUP BY maker
 HAVING COUNT(model) > 1
 AND COUNT(DISTINCT type) = 1
+
+--№41
+WITH temp AS 
+(SELECT model, price FROM PC
+UNION
+SELECT model, price FROM Laptop
+UNION
+SELECT model, price FROM Printer)
+SELECT p.maker, 
+CASE WHEN COUNT(*) = COUNT(price) THEN MAX(price) END
+FROM Product p
+INNER JOIN temp
+ON p.model = temp.model
+GROUP BY p.maker
+
+--№42
+SELECT ship, battle
+FROM outcomes
+WHERE result = 'sunk'
+
+--№43
+SELECT name
+FROM battles
+WHERE YEAR(date) NOT IN 
+(SELECT launched
+FROM ships
+WHERE launched IS NOT NULL)
+
+--№44
+SELECT ship
+FROM outcomes
+WHERE ship LIKE 'R%'
+UNION
+SELECT name
+FROM ships
+WHERE name LIKE 'R%'
+
+--№45
+SELECT name
+FROM ships
+WHERE name LIKE '% % %'
+UNION
+SELECT ship
+FROM outcomes
+WHERE ship LIKE '% % %'
+
+--№46
+SELECT DISTINCT ship, displacement, numGuns
+FROM classes c
+LEFT JOIN ships s
+ON c.class = s.class
+RIGHT JOIN outcomes o 
+ON c.class = o.ship
+OR s.name = o.ship
+WHERE battle = 'Guadalcanal'
+
+--№47
+WITH temp AS
+(SELECT s.name, c.country
+FROM classes c JOIN ships s
+ON c.class = s.class 
+UNION
+SELECT o.ship name, c.country
+FROM classes c JOIN outcomes o
+ON o.ship = c.class), temp2 AS
+(SELECT country, COUNT(*) AS count
+FROM temp
+GROUP BY country), temp3 AS 
+(SELECT country, COUNT(*) AS sunk_count
+FROM temp JOIN outcomes o
+ON o.ship = temp.name
+WHERE result ='sunk'
+GROUP BY country)
+SELECT temp3.country
+FROM temp3 JOIN temp2
+ON temp2.country = temp3.country
+AND temp2.count = temp3.sunk_count
+
+--№48
+SELECT class 
+FROM Outcomes o
+LEFT JOIN ships s
+ON o.ship = s.name
+WHERE result = 'sunk' AND class IS NOT NULL
+UNION 
+SELECT class 
+FROM Outcomes o
+LEFT JOIN classes c
+ON o.ship = c.class
+WHERE result = 'sunk' AND class IS NOT NULL
+
+--№49
+SELECT name 
+FROM ships
+WHERE class IN
+(SELECT class FROM classes WHERE bore = 16)
+UNION
+SELECT ship FROM outcomes WHERE ship IN
+(SELECT class FROM classes WHERE bore = 16)
+
+--№50
+SELECT DISTINCT battle
+FROM ships s
+INNER JOIN outcomes o
+ON s.name = o.ship
+WHERE s.class = 'Kongo'
