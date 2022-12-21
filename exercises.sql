@@ -552,3 +552,242 @@ SELECT point, SUM(remain)
 FROM temp
 WHERE date < '2001-04-15'
 GROUP BY point
+
+--№61
+SELECT sum(i) FROM
+(SELECT point, sum(inc) as i FROM
+income_o
+GROUP BY point
+UNION
+SELECT point, -sum(out) as i FROM
+outcome_o
+GROUP BY point
+) as t
+
+--№62
+SELECT
+(SELECT sum(inc) FROM Income_o WHERE date<'2022-12-18')
+-
+(SELECT sum(out) FROM Outcome_o WHERE date<'2022-12-18')
+AS ost
+
+--№63
+SELECT name FROM Passenger
+WHERE ID_psg in
+(SELECT ID_psg FROM Pass_in_trip
+GROUP BY place, ID_psg
+HAVING count(*)>1)
+
+--№64
+SELECT i1.point, i1.date, 'inc', sum(inc) FROM Income,
+(SELECT point, date FROM Income
+EXCEPT
+SELECT Income.point, Income.date FROM Income
+JOIN Outcome ON (Income.point=Outcome.point) AND
+(Income.date=Outcome.date)
+) AS i1
+WHERE i1.point=Income.point AND i1.date=Income.date
+GROUP BY i1.point, i1.date
+UNION
+SELECT o1.point, o1.date, 'out', sum(out) FROM Outcome,
+(SELECT point, date FROM Outcome
+EXCEPT
+SELECT Income.point, Income.date FROM Income
+JOIN Outcome ON (Income.point=Outcome.point) AND
+(Income.date=Outcome.date)
+) AS o1
+WHERE o1.point=Outcome.point AND o1.date=Outcome.date
+GROUP BY o1.point, o1.date
+
+--№65
+SELECT row_number() over(ORDER BY maker,s),t, type FROM
+(SELECT maker,type,
+CASE
+WHEN type='PC'
+THEN 0
+WHEN type='Laptop'
+THEN 1
+ELSE 2
+END AS s,
+CASE
+WHEN type='Laptop' AND (maker in (SELECT maker FROM Product WHERE
+type='PC'))
+THEN
+WHEN type='Printer' AND ((maker in (SELECT maker FROM Product WHERE
+type='PC')) OR (maker in (SELECT maker FROM Product WHERE
+type='Laptop')))
+THEN ''
+ELSE maker
+END AS t
+FROM Product
+GROUP BY maker,type) AS t1
+ORDER BY maker, s
+
+--№66
+SELECT date, max(c) FROM
+(SELECT date,count(*) AS c FROM Trip,
+(SELECT trip_no,date FROM Pass_in_trip WHERE date>='2003-04-01' AND date<='2003-04-07' GROUP BY trip_no, date) AS t1
+WHERE Trip.trip_no=t1.trip_no AND town_from='Rostov'
+GROUP BY date
+UNION ALL
+SELECT '2003-04-01',0
+UNION ALL
+SELECT '2003-04-02',0
+UNION ALL
+SELECT '2003-04-03',0
+UNION ALL
+SELECT '2003-04-04',0
+UNION ALL
+SELECT '2003-04-05',0
+UNION ALL
+SELECT '2003-04-06',0
+UNION ALL
+SELECT '2003-04-07',0) AS t2
+GROUP BY date
+
+--№67
+select count(*) from
+(SELECT TOP 1 WITH TIES count(*) c, town_from, town_to from trip
+group by town_from, town_to
+order by c desc) as t
+
+--№68
+select count(*) from (
+select TOP 1 WITH TIES sum(c) cc, c1, c2 from (
+SELECT count(*) c, town_from c1, town_to c2 from trip
+where town_from>=town_to
+group by town_from, town_to
+union all
+SELECT count(*) c,town_to, town_from from trip
+where town_to>town_from
+group by town_from, town_to) as way1
+group by c1,c2
+order by cc desc) as way2
+
+--№69
+with t as
+(select point, "date", inc, 0 AS "out" from income
+  union all
+  select point, "date", 0 AS inc, "out" from outcome)
+SELECT t.point, TO_CHAR ( t."date", 'DD/MM/YYYY') AS day,
+ (select SUM(i.inc) from t i
+  where i."date" <= t."date" and i.point = t.point )
+-
+(select SUM(i."out") from t i
+ where i."date" <= t."date" and i.point = t.point ) AS rem
+from t
+group by t.point, t."date"
+
+--№70
+SELECT DISTINCT o.battle
+FROM outcomes o
+LEFT JOIN ships s ON s.name = o.ship
+LEFT JOIN classes c ON o.ship = c.class OR s.class = c.class
+WHERE c.country IS NOT NULL
+GROUP BY c.country, o.battle
+HAVING COUNT(o.ship) >= 3
+
+--№71
+SELECT p.maker
+FROM product p
+LEFT JOIN pc ON pc.model = p.model
+WHERE p.type = 'PC'
+GROUP BY p.maker
+HAVING COUNT(p.model) = COUNT(pc.model)
+
+--№72
+select TOP 1 WITH TIES name, c3 from passenger
+join
+(select c1, max(c3) c3 from
+(select pass_in_trip.ID_psg c1, Trip.ID_comp c2, count(*) c3 from pass_in_trip
+join trip on trip.trip_no=pass_in_trip.trip_no
+group by pass_in_trip.ID_psg, Trip.ID_comp) as t
+group by c1
+having count(*)=1) as tt
+on ID_psg=c1
+order by c3 desc
+
+--№73
+SELECT DISTINCT c.country, b.name
+FROM battles b, classes c
+MINUS
+SELECT c.country, o.battle
+FROM outcomes o
+LEFT JOIN ships s ON s.name = o.ship
+LEFT JOIN classes c ON o.ship = c.class OR s.class = c.class
+WHERE c.country IS NOT NULL
+GROUP BY c.country, o.battle
+
+--№74
+SELECT c.country, c.class
+FROM classes c
+WHERE UPPER(c.country) = 'RUSSIA' AND EXISTS (
+SELECT c.country, c.class
+FROM classes c
+WHERE UPPER(c.country) = 'RUSSIA' )
+UNION ALL
+SELECT c.country, c.class
+FROM classes c
+WHERE NOT EXISTS (SELECT c.country, c.class
+FROM classes c
+WHERE UPPER(c.country) = 'RUSSIA' )
+
+--№75
+select maker, max(l.price) as laptop, max(pc.price) as pc, max(pr.price) as printer
+from laptop l 
+right join product p on l.model = p.model 
+left join pc on pc.model = p.model 
+left join printer pr on p.model = pr.model
+where maker in (select maker from product 
+where model in (select model from pc where price is not null 
+union 
+select model from printer where price is not null 
+union 
+select model from laptop where price is not null)) 
+group by maker 
+order by maker;
+
+--№76
+WITH cte AS
+(SELECT ROW_NUMBER() OVER (PARTITION BY ps.ID_psg,pit.place ORDER BY pit.date) AS rowNumber
+,DATEDIFF (minute, time_out, DATEADD(DAY,IIF(time_in<time_out,1,0),time_in)) AS timeFlight, ps.Id_psg, ps.name
+FROM Pass_in_trip pit LEFT JOIN trip tr ON pit.trip_no = tr.trip_no
+LEFT JOIN Passenger ps ON ps.ID_psg = pit.ID_psg)
+SELECT MAX(cte.name),SUM(timeFlight) FROM cte
+GROUP BY cte.ID_psg
+HAVING MAX(rowNumber) = 1
+
+--№77
+SELECT TOP 1 WITH TIES * FROM (
+  SELECT COUNT (DISTINCT P.trip_no) count, date
+  FROM Pass_in_trip P
+  JOIN Trip T ON T.trip_no = P.trip_no AND town_from = 'Rostov'
+  GROUP BY P.trip_no, date) X
+ORDER BY 1 DESC
+
+--№78
+SELECT name, REPLACE(CONVERT(CHAR(12), DATEADD(m, DATEDIFF(m,0,date),0), 102),'.','-') AS first,
+             REPLACE(CONVERT(CHAR(12), DATEADD(s,-1,DATEADD(m, DATEDIFF(m,0,date)+1,0)), 102),'.','-') AS end
+FROM Battles
+
+--№79
+SELECT Passenger.name, A.minutes
+FROM (SELECT P.ID_psg,
+      SUM((DATEDIFF(minute, time_out, time_in) + 1440)%1440) AS minutes,
+      MAX(SUM((DATEDIFF(minute, time_out, time_in) + 1440)%1440)) OVER() AS MaxMinutes
+      FROM Pass_in_trip P JOIN
+       Trip AS T ON P.trip_no = T.trip_no
+      GROUP BY P.ID_psg
+      ) AS A JOIN
+ Passenger ON Passenger.ID_psg = A.ID_psg
+WHERE A.minutes = A.MaxMinutes
+
+--№80
+SELECT DISTINCT maker
+FROM product
+WHERE maker NOT IN (
+     SELECT maker
+     FROM product
+     WHERE type='PC' AND model NOT IN (
+          SELECT model
+          FROM PC))
