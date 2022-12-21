@@ -225,3 +225,81 @@ FROM Outcome
 GROUP BY point, date ) as t
 GROUP BY point, date 
 ORDER BY point
+
+--№31
+SELECT DISTINCT class, country
+FROM classes
+WHERE bore >= 16
+
+--№32
+Select country, cast(avg((power(bore,3)/2)) as numeric(6,2)) as weight
+from (select country, classes.class, bore, name from classes left join ships on classes.class=ships.class
+union all
+select distinct country, class, bore, ship from classes t1 left join outcomes t2 on t1.class=t2.ship
+where ship=class and ship not in (select name from ships) ) a
+where name IS NOT NULL group by country
+
+--№33
+SELECT o.ship 
+FROM BATTLES b
+LEFT JOIN outcomes o ON o.battle = b.name
+WHERE b.name = 'North Atlantic' AND o.result = 'sunk'
+
+--№34
+Select name 
+from classes,ships 
+where launched >=1922 
+and displacement>35000 
+and type='bb' 
+and ships.class = classes.class
+
+--№35
+SELECT model, type
+FROM product
+WHERE upper(model) NOT like '%[^A-Z]%'
+OR model not like '%[^0-9]%'
+
+--№36
+Select name 
+from ships 
+where class = name
+union
+select ship as title 
+from classes,outcomes 
+where classes.class = outcomes.ship
+
+--№37
+SELECT c.class
+FROM classes c
+ LEFT JOIN (
+ SELECT class, name
+ FROM ships
+ UNION
+ SELECT ship, ship
+ FROM outcomes
+) AS out ON s.class = c.class
+GROUP BY c.class
+HAVING COUNT(s.name) = 1
+
+--№38
+SELECT country
+FROM classes
+GROUP BY country
+HAVING COUNT(DISTINCT type) = 2
+
+--№39
+WITH b_s AS
+(SELECT o.ship, b.name, b.date, o.result
+FROM outcomes o
+LEFT JOIN battles b ON o.battle = b.name )
+SELECT DISTINCT a.ship FROM b_s a
+WHERE UPPER(a.ship) IN
+(SELECT UPPER(ship) FROM b_s b
+WHERE b.date < a.date AND b.result = 'damaged')
+
+--№40
+SELECT DISTINCT maker, MAX(type)
+FROM product
+GROUP BY maker
+HAVING COUNT(model) > 1
+AND COUNT(DISTINCT type) = 1
