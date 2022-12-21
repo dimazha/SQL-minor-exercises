@@ -62,3 +62,64 @@ WHERE price =
   (SELECT MAX(price)
   FROM Printer)
 
+--№11
+SELECT AVG(speed) FROM PC
+
+--№12
+SELECT AVG(speed)
+FROM Laptop
+WHERE price > 1000
+
+--№13
+SELECT AVG(PC.speed)
+FROM Product 
+JOIN PC
+ON Product.model = PC.model
+WHERE maker = 'A'
+
+--№14
+SELECT Ships.class, Ships.name, Classes.country
+FROM Ships
+JOIN Classes
+ON Classes.class = Ships.class
+WHERE numGuns >= 10
+
+--№15
+SELECT hd 
+FROM pc 
+GROUP BY hd 
+HAVING COUNT(model) >= 2
+
+--№16
+SELECT DISTINCT pc2.model, pc1.model, pc1.speed, pc1.ram
+FROM PC pc1, PC pc2
+WHERE pc1.speed = pc2.speed AND pc1.ram = pc2.ram AND pc2.model > pc1.model
+
+--№17
+SELECT DISTINCT  Product.type, Product.model, Laptop.speed
+FROM Laptop
+JOIN Product
+ON Product.model = Laptop.model
+WHERE speed < (SELECT MIN (speed) FROM PC)
+
+--№18
+SELECT DISTINCT Product.maker, Printer.price
+FROM Printer
+JOIN Product
+ON Product.model = Printer.model
+WHERE color = 'y'
+AND price = (SELECT MIN(price) FROM Printer WHERE color = 'y')
+
+--№19
+SELECT maker, AVG(screen)
+FROM Laptop
+JOIN Product
+ON Laptop.model = Product.model
+GROUP BY maker
+
+--№20
+SELECT maker, COUNT(model)
+FROM Product
+WHERE type = 'pc'
+GROUP BY maker
+HAVING COUNT(model) >= 3
