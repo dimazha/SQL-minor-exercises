@@ -791,3 +791,236 @@ WHERE maker NOT IN (
      WHERE type='PC' AND model NOT IN (
           SELECT model
           FROM PC))
+
+--№81
+SELECT O.*
+FROM outcome O
+INNER JOIN
+
+--№82
+(SELECT TOP 1 WITH TIES YEAR(date) AS year, MONTH(date) AS month, SUM(out) AS vsego
+FROM outcome
+GROUP BY YEAR(date), MONTH(date)
+ORDER BY ALL_TOTAL DESC) R 
+ON YEAR(O.date) = R.year 
+AND MONTH(O.date) = R.month
+
+--№83
+WITH CTE(code,price,number)
+AS
+(
+SELECT PC.code,PC.price, number= ROW_NUMBER() OVER (ORDER BY PC.code)
+FROM PC
+)
+SELECT CTE.code, AVG(C.price)
+FROM CTE
+JOIN CTE C ON (C.number-CTE.number)<6 AND (C.number-CTE.number)> =0
+GROUP BY CTE.number,CTE.code
+HAVING COUNT(CTE.number)=6
+
+--№84
+SELECT name
+FROM Ships AS s JOIN Classes AS cl1 ON s.class = cl1.class
+WHERE
+CASE WHEN numGuns = 8 THEN 1 ELSE 0 END +
+CASE WHEN bore = 15 THEN 1 ELSE 0 END +
+CASE WHEN displacement = 32000 THEN 1 ELSE 0 END +
+CASE WHEN type = 'bb' THEN 1 ELSE 0 END +
+CASE WHEN launched = 1915 THEN 1 ELSE 0 END +
+CASE WHEN s.class = 'Kongo' THEN 1 ELSE 0 END +
+CASE WHEN country = 'USA' THEN 1 ELSE 0 END > = 4
+
+--№85
+SELECT C.name, A.N_1_10, A.N_11_21, A.N_21_30
+FROM (SELECT T.ID_comp,
+       SUM(CASE WHEN DAY(P.date) < 11 THEN 1 ELSE 0 END) AS N_1_10,
+       SUM(CASE WHEN (DAY(P.date) > 10 AND DAY(P.date) < 21) THEN 1 ELSE 0 END) AS N_11_21,
+       SUM(CASE WHEN DAY(P.date) > 20 THEN 1 ELSE 0 END) AS N_21_30
+      FROM Trip AS T JOIN
+       Pass_in_trip AS P ON T.trip_no = P.trip_no AND CONVERT(char(6), P.date, 112) = '200304'
+      GROUP BY T.ID_comp
+      ) AS A JOIN
+ Company AS C ON A.ID_comp = C.ID_comp
+
+--№86
+select maker
+from product
+group by maker
+having count(distinct type) = 1 and
+       (min(type) = 'pc' or
+       (min(type) = 'printer' and count(model) > 2))
+
+--№87
+SELECT maker,
+       CASE count(distinct type) when 2 then MIN(type) + '/' + MAX(type)
+                                 when 1 then MAX(type)
+                                 when 3 then 'Laptop/PC/Printer' END
+FROM Product
+GROUP BY maker
+
+--№88
+SELECT DISTINCT name, COUNT(town_to) nazn
+FROM Trip tr JOIN Pass_in_trip pit ON tr.trip_no = pit.trip_no JOIN
+         Passenger psg ON pit.ID_psg = psg.ID_psg
+WHERE town_to = 'Moscow' AND pit.ID_psg NOT IN(SELECT DISTINCT ID_psg
+FROM Trip tr JOIN Pass_in_trip pit ON tr.trip_no = pit.trip_no
+WHERE date+time_out = (SELECT MIN (date+time_out)
+                       FROM Trip tr1 JOIN Pass_in_trip pit1 ON tr1.trip_no = pit1.trip_no
+                       WHERE pit.ID_psg = pit1.ID_psg)
+AND town_from = 'Moscow')
+GROUP BY pit.ID_psg, name
+HAVING COUNT(town_to) > 1
+
+--№89
+SELECT
+ (SELECT name FROM Passenger WHERE ID_psg = B.ID_psg) AS name,
+ B.trip_Qty,
+ (SELECT name FROM Company WHERE ID_comp = B.ID_comp) AS Company
+FROM (SELECT P.ID_psg, MIN(T.ID_comp) AS ID_comp, COUNT(*) AS trip_Qty, MAX(COUNT(*)) OVER() AS Max_Qty
+      FROM Pass_in_trip AS P JOIN
+       Trip AS T ON P.trip_no = T.trip_no
+      GROUP BY P.ID_psg
+      HAVING MIN(T.ID_comp) = MAX(T.ID_comp)
+      ) AS B
+WHERE B.trip_Qty = B.Max_Qty
+
+--№90
+select Maker , count(distinct model) mod 
+from Product
+group by maker
+having count(distinct model) > = ALL
+(select count(distinct model) 
+from Product
+group by maker)
+or
+count(distinct model) <= ALL
+(select count(distinct model) 
+from Product
+group by maker)
+
+--№92
+SELECT Q_NAME
+FROM utQ
+WHERE Q_ID IN (SELECT DISTINCT B.B_Q_ID
+FROM (SELECT B_Q_ID
+FROM utB
+GROUP BY B_Q_ID
+HAVING SUM(B_VOL) = 765) AS B
+WHERE B.B_Q_ID NOT IN (SELECT B_Q_ID
+FROM utB
+WHERE B_V_ID IN (SELECT B_V_ID
+FROM utB
+GROUP BY B_V_ID
+HAVING SUM(B_VOL) < 255)))
+
+--№93
+select c.name, sum(vr.vr)
+from
+(select distinct t.id_comp, pt.trip_no, pt.date,t.time_out,t.time_in,--pt.id_psg,
+case
+     when DATEDIFF(mi, t.time_out,t.time_in)> 0 then DATEDIFF(mi, t.time_out,t.time_in)
+     when DATEDIFF(mi, t.time_out,t.time_in)<=0 then DATEDIFF(mi, t.time_out,t.time_in+1)
+end vr
+from pass_in_trip pt left 
+join trip t on pt.trip_no=t.trip_no) 
+join company c on vr.id_comp=c.id_comp
+group by c.name
+
+--№94
+SELECT DATEADD(day, S.Num, D.date) AS Dt,
+       (SELECT COUNT(DISTINCT P.trip_no)
+        FROM Pass_in_trip P
+               JOIN Trip T
+                 ON P.trip_no = T.trip_no
+                    AND T.town_from = 'Rostov'
+                    AND P.date = DATEADD(day, S.Num, D.date)) AS Qty
+FROM (SELECT (3 * ( x - 1 ) + y - 1) AS Num
+        FROM (SELECT 1 AS x UNION ALL SELECT 2 UNION ALL SELECT 3) AS N1
+               CROSS JOIN (SELECT 1 AS y UNION ALL SELECT 2 UNION ALL SELECT 3) AS N2
+        WHERE (3 * ( x - 1 ) + y ) < 8) AS S,
+       (SELECT MIN(A.date) AS date
+        FROM (SELECT P.date,
+                       COUNT(DISTINCT P.trip_no) AS Qty,
+                       MAX(COUNT(DISTINCT P.trip_no)) OVER() AS M_Qty
+                FROM Pass_in_trip AS P
+                       JOIN Trip AS T
+                         ON P.trip_no = T.trip_no
+                            AND T.town_from = 'Rostov'
+                GROUP BY P.date) AS A
+        WHERE A.Qty = A.M_Qty) AS D
+
+--№95
+SELECT name,
+    COUNT(DISTINCT CONVERT(CHAR(24),date)+CONVERT(CHAR(4),Trip.trip_no)),
+    COUNT(DISTINCT plane),
+    COUNT(DISTINCT ID_psg),
+    COUNT(*)
+FROM Company,Pass_in_trip,Trip
+WHERE Company.ID_comp=Trip.ID_comp and Trip.trip_no=Pass_in_trip.trip_no
+GROUP BY Company.ID_comp,name
+
+--№96
+with r as (select v.v_name,
+       v.v_id,
+       count(case when v_color = 'R' then 1 end) over(partition by v_id) cnt_r,
+       count(case when v_color = 'B' then 1 end) over(partition by b_q_id) cnt_b
+  from utV v join utB b on v.v_id = b.b_v_id)
+select v_name
+  from r
+where cnt_r > 1
+  and cnt_b > 0
+group by v_name
+
+--№97
+select code, speed, ram, price, screen
+from laptop where exists (
+  select 1 x
+  from (
+    select v, rank()over(order by v) rn
+    from ( select cast(speed as float) sp, cast(ram as float) rm,
+                  cast(price as float) pr, cast(screen as float) sc
+    )l unpivot(v for c in (sp, rm, pr, sc))u
+  )l pivot(max(v) for rn in ([1],[2],[3],[4]))p
+  where [1]*2 <= [2] and [2]*2 <= [3] and [3]*2 <= [4])
+
+--№98
+with CTE AS
+(select
+1 n, cast (0 as varchar(16)) bit_or,
+code, speed, ram FROM PC
+UNION ALL
+select n*2,
+cast (convert(bit,(speed|ram)&n) as varchar(1))+cast(bit_or as varchar(15))
+, code, speed, ram
+from CTE where n < 65536)
+select code, speed, ram from CTE
+where n = 65536
+and CHARINDEX('1111', bit_or )> 0
+
+--№99
+select point, "date" income_date, "date" + nvl(
+                  min(case when diff > cnt then cnt else null end),
+                  max(cnt)+1
+                ) incass_date
+from (select i.point,
+             i."date",
+             (trunc(o."date") - trunc(i."date")) diff,
+             count(1) over (partition by i.point, i."date" order by o."date" rows between unbounded preceding and current row)-1 cnt
+      from income_o i
+               join (select point, "date", 1 disabled from outcome_o
+                     union
+                     select point, trunc("date"+7,'DAY'), 1 disabled from income_o) o
+                 on i.point = o.point
+      where o."date" > = i."date")
+group by point, "date";
+
+--№100
+Select distinct A.date , A.R, B.point, B.inc, C.point, C.out
+From (Select distinct date, ROW_Number() OVER(PARTITION BY date ORDER BY code asc) as R From Income
+Union Select distinct date, ROW_Number() OVER(PARTITION BY date ORDER BY code asc) From Outcome) A
+LEFT Join (Select date, point, inc
+                , ROW_Number() OVER(PARTITION BY date ORDER BY code asc) as RI FROM Income
+           ) B on B.date=A.date and B.RI=A.R
+LEFT Join (Select date, point, out
+                , ROW_Number() OVER(PARTITION BY date ORDER BY code asc) as RO FROM Outcome
+           ) C on C.date=A.date and C.RO=A.R;
